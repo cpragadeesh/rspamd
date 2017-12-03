@@ -4,7 +4,7 @@ local lua_util = require "lua_util"
 local rspamd_logger = require "rspamd_logger"
 local ucl = require "ucl"
 
-local rescore_utility = require "rescore_utility"
+local rescore_utility = require "rspamadm/rescore_utility"
 
 local function weight_to_score(weight, bias, threshold) 
    return weight * threshold / bias
@@ -68,20 +68,7 @@ local function init_weights(all_symbols, original_symbol_scores)
       weights[i] = score
       mean = mean + score
    end
---[[
-   mean = mean / size
 
-   local dev = 0
-   for i=1,size do
-      dev = dev + (weights[i] - mean) * (weights[i] - mean)
-   end
-
-   dev = math.sqrt(dev / size)
-   
-   for i=1,size do
-      weights[i] = (weights[i] - mean) / dev
-   end
-]]
    return weights   
 end
 
@@ -150,9 +137,9 @@ local function write_scores(new_symbol_scores, file_path)
    
    local file = assert(io.open(file_path, "w"))
 
-   local new_scores_json = ucl.to_format(new_symbol_scores, "json")
+   local new_scores_ucl = ucl.to_format(new_symbol_scores, "ucl")
 
-   file:write(new_scores_json)
+   file:write(new_scores_ucl)
    
    file:close()
 end

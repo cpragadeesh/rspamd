@@ -25,6 +25,7 @@ static gchar *logdir = NULL;
 static gchar *output = "new.scores";
 static gdouble threshold = 15; // Spam threshold
 static gboolean score_diff = false;  // Print score diff flag
+static gint64 iters = 500; // Perceptron max iterations
 
 static void rspamadm_rescore (gint argc, gchar **argv);
 static const char *rspamadm_rescore_help (gboolean full_help);
@@ -45,6 +46,8 @@ static GOptionEntry entries[] = {
 						"Spam threshold score [Default: 15]", NULL},						
 			{"diff", 'd', 0, G_OPTION_ARG_NONE, &score_diff,
 									"Print score diff", NULL},
+			{"iters", 'i', 0, G_OPTION_ARG_INT64, &iters,
+				"Max iterations for perceptron [Default: 500]", NULL},	
 			{NULL,	0,	0, G_OPTION_ARG_NONE, NULL, NULL, NULL}
 };
 
@@ -62,7 +65,8 @@ rspamadm_rescore_help (gboolean full_help)
 					"-l: path to logs directory\n"
 					"-o: Scores output file location\n"
 					"-t: Spam threshold score [Default: 15]\n"
-					"-d: Print scores diff\n";
+					"-d: Print scores diff\n"
+					"-i: Max iterations for perceptron\n";
 	}
 
 	else {
@@ -117,6 +121,8 @@ rspamadm_rescore (gint argc, gchar **argv)
 											"output", 0, false);
 	ucl_object_insert_key (obj, ucl_object_fromdouble (threshold),
 											"threshold", 0, false);
+	ucl_object_insert_key (obj, ucl_object_fromint (iters),
+											"iters", 0, false);
 	ucl_object_insert_key (obj, ucl_object_frombool (score_diff),
 											"diff", 0, false);
 
