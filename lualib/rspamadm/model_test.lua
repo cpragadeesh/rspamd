@@ -5,10 +5,7 @@ local ucl = require "ucl"
 local argparse = require "argparse"
 local rspamd_logger = require "rspamd_logger"
 local rspamd_task = require "rspamd_task"
-<<<<<<< HEAD
-=======
 local tensor = require "rspamd_tensor"
->>>>>>> ab7faf9d3... Add PCA step to model testing script
 
 local SPAM_LABEL = -1
 local HAM_LABEL = 1
