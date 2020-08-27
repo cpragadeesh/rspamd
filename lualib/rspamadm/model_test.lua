@@ -5,6 +5,10 @@ local ucl = require "ucl"
 local argparse = require "argparse"
 local rspamd_logger = require "rspamd_logger"
 local rspamd_task = require "rspamd_task"
+<<<<<<< HEAD
+=======
+local tensor = require "rspamd_tensor"
+>>>>>>> ab7faf9d3... Add PCA step to model testing script
 
 local SPAM_LABEL = -1
 local HAM_LABEL = 1
@@ -565,7 +569,7 @@ parser:option "-n --conns"
 
 -- TODO load from neural.lua
 local function create_ann(n, nlayers)
-  local nhidden = math.floor(n)
+  local nhidden = math.floor(2*n)
   local t = rspamd_kann.layer.input(n)
   t = rspamd_kann.transform.relu(t)
   -- t = rspamd_kann.transform.sigm(rspamd_kann.layer.dense(t, nhidden));
@@ -613,13 +617,13 @@ local function test(ann, inputs, true_outputs)
 	for i,inp in ipairs(inputs) do
 		local res = predict(ann, inp)
 		if true_outputs[i][1] == SPAM_LABEL then
-			if res > 0 then
+			if res < 0 then
 				tp = tp + 1
 			else
 				fn = fn + 1
 			end
-		else 
-			if res < 0 then
+		else
+			if res > 0 then
 				tn = tn + 1
 			else
 				fp = fp + 1
@@ -839,6 +843,97 @@ local function load_all_symbols()
 	return all_symbols
 end
 
+<<<<<<< HEAD
+=======
+local function fill_scatter(inputs, meanv)
+  local scatter_matrix = tensor.new(2, #inputs, #inputs[1])
+  local row_len = #inputs[1]
+
+  for i=1,row_len do
+    local col = tensor.new(1, #inputs)
+    for j=1,#inputs do
+      local x = inputs[j][i] - meanv[j]
+      col[j] = x
+    end
+    local prod = col:mul(col, false, true)
+    for ii=1,#prod do
+      for jj=1,#prod[1] do
+        scatter_matrix[ii][jj] = scatter_matrix[ii][jj] + prod[ii][jj]
+      end
+    end
+  end
+
+  return scatter_matrix
+end
+
+local function get_top_n_eigenvalue_indices(eigen_values, n)
+
+  local sorted = {}
+  for i=1,#eigen_values do
+      table.insert(sorted, {i, eigen_values[i]})
+  end
+
+  table.sort(sorted, function(a,b) return a[2] > b[2] end)
+
+  local top_indices = {}
+
+  for _, v in ipairs(sorted) do
+      table.insert(top_indices, v[1])
+      if #top_indices == n then
+        break
+      end
+  end
+
+  return top_indices
+end
+
+
+local function tensor_to_table(tensor_table)
+
+  local t = {}
+
+  for i=1,#tensor_table do
+    local row = {}
+    for j=1,#tensor_table[i] do
+      row[#row + 1] = tensor_table[i][j]
+    end
+    t[#t + 1] = row
+  end
+
+  return t
+end
+
+
+local function getPCAMatrix(inputs, n_components)
+
+	inputs = tensor.fromtable(inputs)
+	inputs_t = inputs:transpose()
+	inputs = inputs_t * inputs
+
+	rspamd_logger.messagex("Input dim: %s %s", #inputs, #inputs[1])
+
+	local meanv = inputs:mean()
+	local scatter_matrix = fill_scatter(inputs, meanv)
+	local eugenvals = scatter_matrix:eugen()
+
+	top_eigen_indices = get_top_n_eigenvalue_indices(eugenvals, n_components)
+
+	rspamd_logger.messagex("top eigen_values: \n%s", top_eigen_indices)
+	local w = tensor.new(2, n_components, #scatter_matrix[1])
+
+	rspamd_logger.messagex("scatter_matrix dim: %s %s", #scatter_matrix, #scatter_matrix[1])
+
+	for i=1,n_components do
+	  w[i] = scatter_matrix[top_eigen_indices[i]]
+	end
+
+	return w
+end
+
+local function transform(W, inputs)
+	return tensor_to_table(tensor.fromtable(inputs) * W:transpose())
+end
+
 local function handler(args)
 	opts = parser:parse(args)
 
@@ -852,11 +947,14 @@ local function handler(args)
 
 	shuffle_dataset(X, Y)
 
+	local W = getPCAMatrix(X, 256)
+	X = transform(W, X)
+
 	local X_train, Y_train, X_test, Y_test = split_dataset(X, Y, 0.7)
 	rspamd_logger.messagex("Number of training examples: %s", #X_train)
 	rspamd_logger.messagex("Number of testing examples: %s", #X_test)
 
-	local ann = create_ann(#all_symbols, 1)
+	local ann = create_ann(256, 1)
 
 	rspamd_logger.infox("Training ANN")
 	train(ann, X_train, Y_train)
